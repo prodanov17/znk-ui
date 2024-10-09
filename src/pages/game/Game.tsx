@@ -4,6 +4,7 @@ import { WebSocketService } from "../../services/websocketService";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Player } from "../lobby/Lobby";
 import { toast } from "react-toastify";
+import GameRulesHover from "../../components/GameRulesHover";
 
 type Card = {
     id: number;
@@ -36,6 +37,7 @@ const Game = () => {
     const [tableCards, setTableCards] = useState<Card[]>([]);
     const [tableValue, setTableValue] = useState<number>(0);
     const [dreamCard, setDreamCard] = useState<Card | null>(null);
+    const [gameInfo, setGameInfo] = useState<Record<string, string>>({});
 
     const [teams, setTeams] = useState<Team[]>([]);
 
@@ -70,24 +72,22 @@ const Game = () => {
         })
 
         wsService.on("card_played", (message) => {
-            setPlayerHand(message.payload.player_hand);
-            setTableCards(message.payload.table_cards);
-            setTableValue(message.payload.table_value);
-            setGameState((prev) => ({ ...prev, next_turn_id: message.payload.next_turn_id }));
-
-            if (message.payload.next_turn_id === userId) {
-                toast.info("Your turn!")
-            }
-
-            setPlayerHandCount(message.payload.players_card_count);
-            setPlaying(message.payload.playing)
-
-            console.log(message.payload)
             if (message.payload.take_cards) {
                 toast.info(`${message.payload.username} took with ${message.payload.card.rank} of ${message.payload.card.suit}`)
             }
             if (message.payload.value >= 10) {
                 toast.info("ZNK! 🚀")
+            }
+
+            setTableCards(message.payload.table_cards);
+            setTableValue(message.payload.table_value);
+            setPlayerHandCount(message.payload.players_card_count);
+            setPlaying(message.payload.playing)
+            setPlayerHand(message.payload.player_hand);
+            setGameState((prev) => ({ ...prev, next_turn_id: message.payload.next_turn_id }));
+
+            if (message.payload.next_turn_id === userId) {
+                toast.info("Your turn!")
             }
         })
 
@@ -99,6 +99,8 @@ const Game = () => {
             setTableValue(0);
             setTeams(message.payload.teams);
             setPlaying(false);
+
+            toast.info(`Round over! Cards go to team ${message.payload.last_capture_id}`)
         })
 
         wsService.on("game_ended", (message) => {
@@ -108,11 +110,11 @@ const Game = () => {
             setTeams(teams);
 
             const winnerTeam = teams.find((team: Team) => team.team_id === winner_team);
-            alert(`Team ${winnerTeam?.team_id} (${winnerTeam.players[0].username} and ${winnerTeam.players[1].username}) wins!`);
+            toast.info(`Team ${winnerTeam?.team_id} (${winnerTeam.players[0].username} and ${winnerTeam.players[1].username}) wins with ${winnerTeam.score}!`);
 
             setTimeout(() => {
                 navigate(`/lobby/${room_id}?userId=${userId}&username=${username}`);
-            }, 3000);
+            }, 5000);
         })
 
         wsService.on("game_state", (message) => {
@@ -125,6 +127,7 @@ const Game = () => {
             setTableCards(payload.table_cards);
             setTableValue(payload.table_value);
             setDreamCard(payload.dream_card);
+            setGameInfo(payload.game_info);
 
             if (payload.state === "waiting") {
                 setPlaying(false);
@@ -141,7 +144,7 @@ const Game = () => {
         })
 
         wsServiceRef.current = wsService;
-        setTimeout(() => sendActiontoWS("game_state"), 1000)
+        setTimeout(() => sendActiontoWS("game_state"), 500)
 
         // Clean up on component unmount
         return () => {
@@ -198,6 +201,7 @@ const Game = () => {
     console.log(playerHandCount)
     return (
         <>
+            <GameRulesHover rules={gameInfo} />
             {dreamCard &&
                 <div className="flex justify-center items-center space-x-1 flex-col max-w-[300px] mx-auto pt-4 absolute right-0">
                     <Card suit={dreamCard?.suit || "back"} rank={dreamCard?.rank || "0"} className="w-20 " />

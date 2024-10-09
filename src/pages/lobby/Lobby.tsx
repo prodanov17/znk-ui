@@ -101,6 +101,7 @@ const Lobby = () => {
             wsServiceRef.current = wsService;
 
             console.log(teams)
+            setTimeout(() => sendActiontoWS("get_teams", {}), 500);
             // Cleanup WebSocket on unmount
             return () => {
                 console.log("lobby component unmounted!");
@@ -112,12 +113,6 @@ const Lobby = () => {
         }
     }, [room_id, userId, username]);
 
-
-    // useEffect(() => {
-    //     if (wsServiceRef.current) {
-    //         sendActiontoWS("get_teams", {});
-    //     }
-    // })
 
     const sendMessagetoWS = () => {
         const payload = {
