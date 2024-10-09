@@ -75,6 +75,10 @@ const Game = () => {
             setTableValue(message.payload.table_value);
             setGameState((prev) => ({ ...prev, next_turn_id: message.payload.next_turn_id }));
 
+            if (message.payload.next_turn_id === userId) {
+                toast.info("Your turn!")
+            }
+
             setPlayerHandCount(message.payload.players_card_count);
             setPlaying(message.payload.playing)
 
@@ -93,6 +97,7 @@ const Game = () => {
             setGameState((prev) => ({ ...prev, dealer_id: dealer_id }))
             setTableCards([]);
             setTableValue(0);
+            setTeams(message.payload.teams);
             setPlaying(false);
         })
 
