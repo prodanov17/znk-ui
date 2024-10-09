@@ -1,15 +1,16 @@
-import { Link, useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { SwitchIcon } from "../../components/Icons";
 import { useEffect, useRef, useState } from "react";
 import { WebSocketService } from "../../services/websocketService";
 
-type Team = {
+export type Team = {
     team_id: number;
     players: Player[];
+    score: number;
 };
 
-type Player = {
-    user_id: number;
+export type Player = {
+    user_id: string;
     username: string;
     score: number;
 };
@@ -27,7 +28,10 @@ const Lobby = () => {
     const userId = queryParams.get("userId");
     const username = queryParams.get("username");
 
-    const wsServiceRef = useRef(null);
+    const navigate = useNavigate();
+
+    const wsServiceRef = useRef<WebSocketService | null>(null);
+
 
     // State to store player count and teams data
     const [playerCount, setPlayerCount] = useState(0);
@@ -35,11 +39,22 @@ const Lobby = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [messageBox, setMessageBox] = useState("");
 
+    const [rules, setRules] = useState<{ [key: string]: string }>({});
+
+    // Handle rule changes dynamically
+    const handleRuleChange = (e: React.ChangeEvent<HTMLInputElement>, ruleKey: string) => {
+        setRules((prevRules) => ({
+            ...prevRules,
+            [ruleKey]: e.target.value, // Update specific rule based on ruleKey
+        }));
+    };
+
+
     useEffect(() => {
         console.log("Lobby component mounted!", room_id, userId, username);
         if (room_id && userId && username) {
             console.log(`Connecting to WebSocket for room ${room_id}...`);
-            const wsService = new WebSocketService(`ws://localhost:8000/api/v1/ws/join/${room_id}?userId=${userId}&username=${username}`);
+            const wsService = WebSocketService.getInstance(`/api/v1/ws/join/${room_id}?userId=${userId}&username=${username}`);
             wsService.connect();
 
             // Handle player_joined action
@@ -62,9 +77,19 @@ const Lobby = () => {
             }
             );
 
+            wsService.on("teams", (message) => {
+                const { teams } = message.payload;
+                setTeams(teams);
+            })
+
             wsService.on("message", (message) => {
                 const { username, message: msg } = message.payload;
                 setMessages((prevMessages) => [...prevMessages, { username, message: msg }]);
+            });
+
+            wsService.on("game_started", (message) => {
+                const { dealer_id } = message.payload;
+                navigate(`/game/${room_id}?userId=${userId}&username=${username}&dealer_id=${dealer_id}`);
             });
 
             // Store the service instance in the ref
@@ -73,13 +98,21 @@ const Lobby = () => {
             console.log(teams)
             // Cleanup WebSocket on unmount
             return () => {
-                console.log("Lobby component unmounted!");
-                wsService.close();
+                console.log("lobby component unmounted!");
+                if (wsServiceRef.current) {
+                    // wsServiceRef.current.close()
+                }
             };
+
         }
     }, [room_id, userId, username]);
-    console.log(teams)
 
+
+    // useEffect(() => {
+    //     if (wsServiceRef.current) {
+    //         sendActiontoWS("get_teams", {});
+    //     }
+    // })
 
     const sendMessagetoWS = () => {
         const payload = {
@@ -97,17 +130,18 @@ const Lobby = () => {
         setMessageBox("");
     }
 
-    const sendActiontoWS = (action: string) => {
-        const payload = {
+    const sendActiontoWS = (action: string, payload: Record<string, any>) => {
+        const packetPayload = {
             action: action,
-            payload: {},
+            payload: payload,
             user_id: userId,
             room_id: room_id
         }
         if (wsServiceRef.current) {
-            wsServiceRef.current.sendMessage(payload);
+            wsServiceRef.current.sendMessage(packetPayload);
         }
     }
+
 
     return (
         <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-between p-6">
@@ -127,7 +161,7 @@ const Lobby = () => {
                         {/* Render players in Team 1 */}
                         {teams[0]?.players?.length > 0 ? (
                             teams[0].players.map((player, index) => (
-                                <p key={index} className="bg-gray-700 rounded p-2 text-gray-200">
+                                <p key={index} className={`rounded p-2 text-gray-200 ${player.user_id == userId ? "bg-blue-600" : "bg-gray-700"}`}>
                                     {player.username}
                                 </p>
                             ))
@@ -139,7 +173,7 @@ const Lobby = () => {
 
                 {/* Switch Teams Button */}
                 <div className="flex items-center justify-center mx-4">
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3" onClick={() => sendActiontoWS("change_team")}>
+                    <button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3" onClick={() => sendActiontoWS("change_team", {})}>
                         <SwitchIcon className="w-6 h-6" />
                     </button>
                 </div>
@@ -150,8 +184,8 @@ const Lobby = () => {
                     <div className="flex flex-col space-y-2">
                         {/* Render players in Team 2 */}
                         {teams[1]?.players?.length > 0 ? (
-                            teams[1].players.map((player) => (
-                                <p key={player.user_id} className="bg-gray-700 rounded p-2 text-gray-200">
+                            teams[1].players.map((player, index) => (
+                                <p key={index} className={`rounded p-2 text-gray-200 ${player.user_id == userId ? "bg-blue-600" : "bg-gray-700"}`}>
                                     {player.username}
                                 </p>
                             ))
@@ -161,6 +195,19 @@ const Lobby = () => {
                     </div>
                 </div>
             </div>
+            <div className="w-full max-w-xl bg-gray-800 shadow-md rounded-lg p-6 mb-6">
+                <h2 className="text-lg font-semibold text-gray-300 mb-4">Game Rules</h2>
+                <label htmlFor="rules" className="block text-sm text-gray-400 mb-2">Play until:</label>
+                <input
+                    id="rules"
+                    type="text"
+                    className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-gray-200 focus:ring-2 focus:ring-blue-600"
+                    placeholder="e.g., 10 points"
+                    onChange={(e) => handleRuleChange(e, 'winning_score')}
+                    value={rules['winning_score'] || ''}
+                />
+            </div>
+
 
             {/* Chat Section */}
             <div className="w-full max-w-3xl bg-gray-800 shadow-md rounded-lg p-6 flex flex-col space-y-4">
@@ -186,9 +233,9 @@ const Lobby = () => {
 
             {/* Start Game Button */}
             <div className="w-full max-w-3xl flex justify-end mt-6">
-                <Link to={`/game/${room_id}`} className="bg-green-600 hover:bg-green-700 text-white font-semibold p-3 rounded-lg">
+                <button onClick={() => sendActiontoWS("start_game", { rules: { winning_score: rules['winning_score'] } })} className="bg-green-600 hover:bg-green-700 text-white font-semibold p-3 rounded-lg">
                     Start Game
-                </Link>
+                </button>
             </div>
         </div>
     );
