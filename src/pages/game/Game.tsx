@@ -78,8 +78,9 @@ const Game = () => {
             setPlayerHandCount(message.payload.players_card_count);
             setPlaying(message.payload.playing)
 
+            console.log(message.payload)
             if (message.payload.take_cards) {
-                toast.info(`${getPlayerUsername(message.payload.user_id)} took with ${message.payload.card.rank} of ${message.payload.card.suit}`)
+                toast.info(`${message.payload.username} took with ${message.payload.card.rank} of ${message.payload.card.suit}`)
             }
             if (message.payload.value >= 10) {
                 toast.info("ZNK! 🚀")
@@ -173,10 +174,6 @@ const Game = () => {
         return teams[getPlayerTeamIndex(playerId)].players[getTeammateIndex(playerId)];
     }
 
-    const getOpponentIndex = (playerId: string) => {
-        const teamIndex = getPlayerTeamIndex(playerId);
-        return teams[teamIndex === 0 ? 1 : 0].players.findIndex((player) => player.user_id !== playerId);
-    }
 
     const getOpponentTeamIndex = (playerId: string) => {
         return getPlayerTeamIndex(playerId) === 0 ? 1 : 0;
@@ -186,13 +183,6 @@ const Game = () => {
         return teams[getPlayerTeamIndex(playerId)];
     }
 
-    const getOpponentTeam = (playerId: string) => {
-        return teams[getOpponentTeamIndex(playerId)];
-    }
-
-    const getPlayerUsername = (playerId: string) => {
-        return teams[getPlayerTeamIndex(playerId)].players.find((player) => player.user_id === playerId)?.username;
-    }
 
     if (wsServiceRef.current === null) {
         return <div>Connecting to the server...</div>;
