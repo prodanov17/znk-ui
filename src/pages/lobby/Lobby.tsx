@@ -2,6 +2,7 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { SwitchIcon } from "../../components/Icons";
 import { useEffect, useRef, useState } from "react";
 import { WebSocketService } from "../../services/websocketService";
+import { toast } from "react-toastify";
 
 export type Team = {
     team_id: number;
@@ -61,15 +62,19 @@ const Lobby = () => {
             wsService.on("player_joined", (message) => {
                 const { playerCount, teams } = message.payload;
                 setPlayerCount(parseInt(playerCount)); // Update player count
-                setTeams(teams); // Update teams
+                setTeams(teams);
                 console.log("setting teams", teams)
+                toast.info("A player joined the game!");
             });
 
             wsService.on("player_left", (message) => {
                 const { playerCount, teams } = message.payload;
                 setPlayerCount(parseInt(playerCount)); // Update player count
                 setTeams(teams); // Update teams
+                toast.warn("A player left the game!");
             });
+
+
 
             wsService.on("team_changed", (message) => {
                 const { teams } = message.payload;

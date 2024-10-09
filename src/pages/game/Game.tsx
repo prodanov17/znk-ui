@@ -3,6 +3,7 @@ import Card from "../../components/Card";
 import { WebSocketService } from "../../services/websocketService";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Player } from "../lobby/Lobby";
+import { toast } from "react-toastify";
 
 type Card = {
     id: number;
@@ -75,7 +76,14 @@ const Game = () => {
             setGameState((prev) => ({ ...prev, next_turn_id: message.payload.next_turn_id }));
 
             setPlayerHandCount(message.payload.players_card_count);
-            setPlaying(!message.payload.playing)
+            setPlaying(message.payload.playing)
+
+            if (message.payload.take_cards) {
+                toast.info(`${getPlayerUsername(message.payload.user_id)} took with ${message.payload.card.rank} of ${message.payload.card.suit}`)
+            }
+            if (message.payload.value >= 10) {
+                toast.info("ZNK! 🚀")
+            }
         })
 
         wsService.on("round_over", (message) => {
@@ -107,7 +115,7 @@ const Game = () => {
             setPlayerHandCount(payload.players_card_count);
             setPlayerHand(payload.player_hand);
             setTeams(payload.teams);
-            setPlaying(payload.playing);
+            setPlaying(!payload.playing);
             setTableCards(payload.table_cards);
             setTableValue(payload.table_value);
             setDreamCard(payload.dream_card);
@@ -180,6 +188,10 @@ const Game = () => {
 
     const getOpponentTeam = (playerId: string) => {
         return teams[getOpponentTeamIndex(playerId)];
+    }
+
+    const getPlayerUsername = (playerId: string) => {
+        return teams[getPlayerTeamIndex(playerId)].players.find((player) => player.user_id === playerId)?.username;
     }
 
     if (wsServiceRef.current === null) {
@@ -279,7 +291,7 @@ const Game = () => {
             </section>
 
 
-            {gameState && gameState.dealer_id === userId && playing && <button onClick={() => sendActiontoWS("deal_cards")} className="fixed bottom-4 right-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg">Deal Cards</button>}
+            {gameState && gameState.dealer_id === userId && !playing && <button onClick={() => sendActiontoWS("deal_cards")} className="fixed bottom-4 right-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg">Deal Cards</button>}
         </>
 
     );
